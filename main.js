@@ -8,6 +8,11 @@ const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
+// Create an Object3D to manage the camera's rotation
+const cameraHolder = new THREE.Object3D();
+cameraHolder.add(camera);
+scene.add(cameraHolder);
+
 // Lighting
 const light = new THREE.AmbientLight(0xffffff, 1);
 scene.add(light);
@@ -28,7 +33,7 @@ const player = {
     jumps: 2,
     height: 1.5, // Add player height for collision detection
 };
-camera.position.copy(player.position);
+cameraHolder.position.copy(player.position);
 
 // Movement input
 const keys = {};
@@ -36,14 +41,14 @@ window.addEventListener('keydown', (e) => (keys[e.key] = true));
 window.addEventListener('keyup', (e) => (keys[e.key] = false));
 
 // Look input (Arrow keys only)
-let lookX = 0, lookY = 0;
+let yaw = 0, pitch = 0;
 const lookSpeed = 0.05; // Adjust this value to change the look speed
 
 function updateLook() {
-    if (keys['ArrowLeft']) lookX += lookSpeed;
-    if (keys['ArrowRight']) lookX -= lookSpeed;
-    if (keys['ArrowUp']) lookY += lookSpeed; // Correct direction for looking up
-    if (keys['ArrowDown']) lookY -= lookSpeed; // Correct direction for looking down
+    if (keys['ArrowLeft']) yaw += lookSpeed;
+    if (keys['ArrowRight']) yaw -= lookSpeed;
+    if (keys['ArrowUp']) pitch = Math.min(Math.PI / 2, pitch + lookSpeed); // Correct direction for looking up
+    if (keys['ArrowDown']) pitch = Math.max(-Math.PI / 2, pitch - lookSpeed); // Correct direction for looking down
     requestAnimationFrame(updateLook);
 }
 updateLook();
@@ -111,8 +116,9 @@ function update() {
     });
 
     player.position.add(player.velocity);
-    camera.position.copy(player.position);
-    camera.rotation.set(lookY, lookX, 0);
+    cameraHolder.position.copy(player.position);
+    cameraHolder.rotation.set(0, yaw, 0); // Rotate the holder for yaw
+    camera.rotation.set(pitch, 0, 0); // Rotate the camera for pitch
 
     renderer.render(scene, camera);
     requestAnimationFrame(update);
