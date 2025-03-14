@@ -14,8 +14,10 @@ scene.add(light);
 
 // Load GLB map
 const loader = new GLTFLoader();
-loader.load('path/to/your/map.glb', (gltf) => {
+loader.load('./models/collision-world.glb', (gltf) => {
     scene.add(gltf.scene);
+}, undefined, (error) => {
+    console.error('Error loading GLB:', error);
 });
 
 // Player variables
@@ -24,6 +26,7 @@ const player = {
     position: new THREE.Vector3(0, 1.5, 5),
     canJump: true,
     jumps: 2,
+    height: 1.5, // Add player height for collision detection
 };
 camera.position.copy(player.position);
 
@@ -32,18 +35,18 @@ const keys = {};
 window.addEventListener('keydown', (e) => (keys[e.key] = true));
 window.addEventListener('keyup', (e) => (keys[e.key] = false));
 
-// Look input (Arrow keys & Trackpad)
+// Look input (Arrow keys only)
 let lookX = 0, lookY = 0;
-window.addEventListener('mousemove', (e) => {
-    lookX += e.movementX * 0.002;
-    lookY += e.movementY * 0.002;
-});
-window.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowLeft') lookX -= 0.05;
-    if (e.key === 'ArrowRight') lookX += 0.05;
-    if (e.key === 'ArrowUp') lookY -= 0.05;
-    if (e.key === 'ArrowDown') lookY += 0.05;
-});
+const lookSpeed = 0.05; // Adjust this value to change the look speed
+
+function updateLook() {
+    if (keys['ArrowLeft']) lookX += lookSpeed;
+    if (keys['ArrowRight']) lookX -= lookSpeed;
+    if (keys['ArrowUp']) lookY += lookSpeed; // Correct direction for looking up
+    if (keys['ArrowDown']) lookY -= lookSpeed; // Correct direction for looking down
+    requestAnimationFrame(updateLook);
+}
+updateLook();
 
 // Shooting
 window.addEventListener('click', () => shoot());
@@ -61,7 +64,7 @@ function shoot() {
 
 // Update loop
 function update() {
-    const speed = 0.05;
+    const speed = 0.02; // Slow down WASD movement
     const direction = new THREE.Vector3();
 
     if (keys['w']) direction.z -= speed;
@@ -70,8 +73,43 @@ function update() {
     if (keys['d']) direction.x += speed;
     if (keys[' ']) jump();
 
+    // Rotate direction vector by camera's rotation
+    direction.applyQuaternion(camera.quaternion);
+
     player.velocity.add(direction);
     player.velocity.y -= 0.01; // Gravity
+
+    // Collision detection
+    const directions = [
+        new THREE.Vector3(0, -1, 0), // Down
+        new THREE.Vector3(0, 1, 0),  // Up
+        new THREE.Vector3(1, 0, 0),  // Right
+        new THREE.Vector3(-1, 0, 0), // Left
+        new THREE.Vector3(0, 0, 1),  // Forward
+        new THREE.Vector3(0, 0, -1)  // Backward
+    ];
+
+    directions.forEach(dir => {
+        const raycaster = new THREE.Raycaster(
+            new THREE.Vector3(player.position.x, player.position.y, player.position.z),
+            dir
+        );
+        const intersects = raycaster.intersectObjects(scene.children, true);
+        if (intersects.length > 0 && intersects[0].distance < player.height / 2) {
+            const normal = intersects[0].face.normal;
+            if (dir.y === -1 || (dir.y === 0 && normal.y > 0.5)) { // Treat slopes as floors
+                player.velocity.y = Math.max(0, player.velocity.y); // Stop falling
+                player.jumps = 2; // Reset jumps when on the ground
+                if (normal.y > 0.5 && dir.y === 0) { // Adjust position to climb or descend slopes
+                    player.position.addScaledVector(normal, speed * normal.y);
+                }
+            } else {
+                player.velocity.addScaledVector(dir, -player.velocity.dot(dir)); // Stop movement in the direction of collision
+                player.position.addScaledVector(dir, -0.1); // Move player slightly away from the wall
+            }
+        }
+    });
+
     player.position.add(player.velocity);
     camera.position.copy(player.position);
     camera.rotation.set(lookY, lookX, 0);
