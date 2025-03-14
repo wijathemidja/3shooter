@@ -78,8 +78,8 @@ function update() {
     if (keys['d']) direction.x += speed;
     if (keys[' ']) jump();
 
-    // Rotate direction vector by camera's rotation
-    direction.applyQuaternion(camera.quaternion);
+    // Rotate direction vector by cameraHolder's rotation
+    direction.applyQuaternion(cameraHolder.quaternion);
 
     player.velocity.add(direction);
     player.velocity.y -= 0.01; // Gravity
