@@ -100,7 +100,7 @@ function update() {
             dir
         );
         const intersects = raycaster.intersectObjects(scene.children, true);
-        if (intersects.length > 0 && intersects[0].distance < player.height / 2) {
+        if (intersects.length > 0 && intersects[0].distance < player.height / 2 + 0.1) { // Add a small buffer
             const normal = intersects[0].face.normal;
             if (dir.y === -1 || (dir.y === 0 && normal.y > 0.5)) { // Treat slopes as floors
                 player.velocity.y = Math.max(0, player.velocity.y); // Stop falling
